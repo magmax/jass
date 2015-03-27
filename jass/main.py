@@ -3,68 +3,9 @@
 import os
 import logging
 import argparse
-
-from sqlalchemy import (
-    create_engine,
-    Column,
-    Integer,
-    String,
-    DateTime,
-    ForeignKey,
-    text,
-)
-from sqlalchemy.orm import (
-    sessionmaker,
-    relationship,
-    backref,
-)
-from sqlalchemy.ext.declarative import declarative_base
-Base = declarative_base()
-
+from . import data
 
 LOGGER = logging.getLogger(__name__)
-
-engine = create_engine('sqlite:///.jass.db', echo=False)
-Session = sessionmaker(bind=engine)
-
-
-class File(Base):
-    __tablename__ = 'files'
-
-    id = Column(Integer, primary_key=True)
-    path = Column(String, unique=True)
-    checksum = Column(String)
-    updated = Column(DateTime, server_default=text('NOW'))
-
-    content = relationship("Content", backref="file")
-    render = relationship("Render", backref="file")
-    properties = relationship("Property")
-
-    def __repr__(self):
-        return self.path
-
-
-class Content(Base):
-    __tablename__ = 'content'
-
-    id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey('files.id'))
-
-
-class Render(Base):
-    __tablename__ = 'render'
-
-    id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey('files.id'))
-
-
-class Property(Base):
-    __tablename__ = 'properties'
-
-    id = Column(Integer, primary_key=True)
-    file_id = Column(Integer, ForeignKey('files.id'))
-    key = Column(String)
-    value = Column(String)
 
 
 class Jass(object):
@@ -77,15 +18,15 @@ class Jass(object):
 
     def task_initialize(self):
         LOGGER.debug('Initializing database')
-        Base.metadata.create_all(engine)
+        data.initialize()
 
     def task_create_file_list(self):
-        LOGGER.debug('Generating the file list')
+        LOGGER.info('Generating the file list')
         for root, dirs, files in os.walk(self._settings.path):
             for filename in files:
                 path = os.path.join(root, filename)
                 relative_path = os.path.relpath(path, self._settings.path)
-                print relative_path
+                data.add_file(relative_path)
 
 
 def logging_setup(verbose):
