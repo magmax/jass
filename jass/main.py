@@ -1,8 +1,10 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, print_function, unicode_literals
 
 import os
 import logging
 import argparse
+import datetime
 from . import data
 
 LOGGER = logging.getLogger(__name__)
@@ -11,22 +13,40 @@ LOGGER = logging.getLogger(__name__)
 class Jass(object):
     def __init__(self, settings):
         self._settings = settings
+        self._starting_date = datetime.datetime.now()
 
     def process(self):
         self.task_initialize()
         self.task_create_file_list()
+        self.task_remove_deleted_data()
+        self.task_update_document_content()
 
     def task_initialize(self):
         LOGGER.debug('Initializing database')
         data.initialize()
 
-    def task_create_file_list(self):
-        LOGGER.info('Generating the file list')
-        for root, dirs, files in os.walk(self._settings.path):
+    def task_create_file_list(self, walk_fn=os.walk, add_fn=data.Document.add):
+        LOGGER.info('Generating the document list')
+        n = 0
+        for root, dirs, files in walk_fn(self._settings.path):
             for filename in files:
                 path = os.path.join(root, filename)
                 relative_path = os.path.relpath(path, self._settings.path)
-                data.add_file(relative_path)
+                stat = os.stat(path)
+                date = datetime.datetime.fromtimestamp(stat.st_mtime)
+                if add_fn(relative_path, date):
+                    n += 1
+        LOGGER.info('%s documents added', n)
+
+    def task_remove_deleted_data(self, fn_remove_documents_older_than=
+                                 data.Document.remove_older_than):
+        LOGGER.info('Removing removed documents')
+        n = fn_remove_documents_older_than(self._starting_date)
+        LOGGER.info('%s documents were removed', n)
+
+    def task_update_document_content(self):
+        LOGGER.info('%s documents to be reloaded',
+                    data.Document.count_content_outofdate())
 
 
 def logging_setup(verbose):
@@ -47,7 +67,7 @@ def logging_setup(verbose):
         elif level == logging.DEBUG:
             LOGGER.debug('Logging DEBUG for %s' % logger_name)
 
-    format = '%(asctime)s [%(levelname)5.5s] %(message)s'
+    format = '%(relativeCreated)#10.2f [%(levelname)5.5s] %(message)s'
     if verbose == 0:
         format = '%(name)s %(levelname)s %(message)s'
         level = logging.WARN
@@ -59,9 +79,6 @@ def logging_setup(verbose):
         level = logging.DEBUG
         level_alchemy = logging.WARN
     elif verbose == 3:
-        level = logging.DEBUG
-        level_alchemy = logging.INFO
-    elif verbose == 4:
         level = logging.DEBUG
         level_alchemy = logging.INFO
     else:
@@ -88,7 +105,6 @@ def main():
 
     jass = Jass(settings)
     jass.process()
-
 
 
 if __name__ == '__main__':
