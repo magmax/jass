@@ -1,13 +1,17 @@
 import logging
-from jass import plugin
-import markdown
-
 LOGGER = logging.getLogger('jass.' + __name__)
+from jass import plugin
+try:
+    import markdown
+except:
+    markdown = None
+    LOGGER.error('Markdown plugin disabled: markdown library not found')
+
 
 
 class Markdown(plugin.Parser):
     def can_manage(self, filename):
-        return filename.endswith((
+        return markdown and filename.endswith((
             '.md',
             '.markdown',
         ))
