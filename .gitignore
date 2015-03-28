@@ -2,5 +2,9 @@
 \#*
 \.\#*
 *.pyc
+*.egg
+*egg-info
 venv/
 .jass.db
+.coverage
+.todo
