@@ -61,6 +61,8 @@ setup(name='jass',
       zip_safe=False,
       install_requires=[
           'peewee',
+          'yapsy',
+          'colorlog',
       ],
       tests_require=[
           'pytest',
@@ -69,4 +71,7 @@ setup(name='jass',
       setup_requires=[
           'flake8',
       ],
+      extras_require = {
+        'markdown':  ["markdown"],
+      }
 )

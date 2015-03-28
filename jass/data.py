@@ -11,6 +11,7 @@ from peewee import (
     ForeignKeyField,
 )
 
+from . import plugin
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class Render(Model):
 
 class Document(Model):
     path = CharField(unique=True)
+    relative_path = CharField(unique=True)
     st_mtime = DateTimeField()
 
     is_content_updated = BooleanField(default=False)
@@ -47,12 +49,14 @@ class Document(Model):
         database = db
 
     @classmethod
-    def add(cls, path, st_mtime):
+    def add(cls, path, relative_path, st_mtime):
         try:
             doc = cls.select().where(Document.path == path).get()
-            outofdate = doc.st_mtime != st_mtime
-            doc.is_content_updated = doc.is_content_updated or outofdate
-            doc.is_render_updated = doc.is_render_updated or outofdate
+            updated = doc.st_mtime == st_mtime
+
+            doc.relative_path = relative_path
+            doc.is_content_updated = updated
+            doc.is_render_updated = doc.is_render_updated and updated
             doc.st_mtime = st_mtime
             doc.updated = datetime.datetime.now()
             doc.save()
@@ -61,10 +65,12 @@ class Document(Model):
             LOGGER.debug('Adding file %s', path)
             doc = cls.create(
                 path=path,
+                relative_path=relative_path,
                 st_mtime=st_mtime,
                 updated=datetime.datetime.now(),
                 uptodate=False,
             )
+            LOGGER.error('NEW DOC: %s %s %s %s', path, st_mtime, doc.st_mtime, doc.st_mtime != st_mtime)
             doc.save()
             return True
 
@@ -76,9 +82,29 @@ class Document(Model):
     def count_content_outofdate(cls):
         return cls.select().where(cls.is_content_updated == False).count()
 
+    @classmethod
+    def get_content_outdated(cls):
+        return cls.select().where(cls.is_content_updated == False)
+
+    @classmethod
+    def count_render_outofdate(cls):
+        return cls.select().where(cls.is_render_updated == False).count()
+
+    @classmethod
+    def get_render_outdated(cls):
+        return cls.select().where(cls.is_render_updated == False)
+
+    def add_property(self, key, value):
+        try:
+            prop = Property.select().where(Property.document == self, Property.key == key).get()
+            prop.value = value
+        except Property.DoesNotExist:
+            prop = Property.create(document=self, key=key, value=value)
+        prop.save()
+
 
 class Property(Model):
-    document = ForeignKeyField(Document, related_name='property')
+    document = ForeignKeyField(Document, related_name='properties')
     key = CharField(max_length=32)
     value = CharField()
 
