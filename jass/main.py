@@ -64,6 +64,7 @@ class Jass(object):
                     data.Document.count_content_outofdate())
 
         for doc in data.Document.get_content_outdated():
+            LOGGER.info('Reloading %s', doc.relative_path)
             for plugin in self.plugins_parser:
                 if plugin.plugin_object.can_manage(doc.path):
                     LOGGER.debug('Plugin %s will process doc %s', plugin.name, doc.path)
@@ -71,6 +72,7 @@ class Jass(object):
                     content = plugin.plugin_object.parse(doc.path, doc.add_property)
                     if doc.content:
                         doc.content.data = content
+                        doc.content.save()
                     else:
                         doc.content = data.Content.create(data=content)
                     doc.is_content_updated = True
@@ -91,15 +93,21 @@ class Jass(object):
             else:
                 render = data.Render.create(data=content)
                 doc.render = render
-                doc.save()
+            doc.is_render_updated = True
+            doc.save()
 
     def task_generate_output(self):
         LOGGER.info('Writing results')
-        for doc in data.Document.get_render_outdated():
+        for doc in data.Document.select():
             output_path = os.path.join(self._settings.output, doc.output_path)
             directory = os.path.dirname(output_path)
+            if os.path.exists(output_path):
+                stat = os.stat(output_path)
+                if stat.st_mtime == doc.st_mtime:
+                    continue
             if not os.path.exists(directory):
                 os.makedirs(directory)
+            LOGGER.debug('Writing results for %s', output_path)
             with open(output_path, 'w+') as fd:
                 fd.write(doc.render.data)
 
@@ -113,6 +121,7 @@ class Jass(object):
     @property
     def plugins_parser(self):
         return self._plugin_manager.getPluginsOfCategory(PLUGINS_PARSER)
+
 
 def logging_setup(verbose):
     def inner(logger_name, format, level):

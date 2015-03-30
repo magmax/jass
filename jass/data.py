@@ -1,4 +1,3 @@
-import os
 import logging
 import datetime
 from peewee import (
@@ -10,8 +9,6 @@ from peewee import (
     DateTimeField,
     ForeignKeyField,
 )
-
-from . import plugin
 
 LOGGER = logging.getLogger(__name__)
 
