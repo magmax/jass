@@ -35,10 +35,12 @@ class Render(Model):
 class Document(Model):
     path = CharField(unique=True)
     relative_path = CharField(unique=True)
+    output_path = CharField(unique=True, null=True)
     st_mtime = DateTimeField()
 
     is_content_updated = BooleanField(default=False)
     is_render_updated = BooleanField(default=False)
+    is_generated = BooleanField(default=False)
 
     content = ForeignKeyField(Content, related_name='document', null=True)
     render = ForeignKeyField(Render, related_name='document', null=True)
@@ -70,8 +72,6 @@ class Document(Model):
                 updated=datetime.datetime.now(),
                 uptodate=False,
             )
-            LOGGER.error('NEW DOC: %s %s %s %s', path, st_mtime, doc.st_mtime, doc.st_mtime != st_mtime)
-            doc.save()
             return True
 
     @classmethod
@@ -93,6 +93,13 @@ class Document(Model):
     @classmethod
     def get_render_outdated(cls):
         return cls.select().where(cls.is_render_updated == False)
+
+    @classmethod
+    def get_by_path_or_none(cls, path):
+        try:
+            return cls.select().where(cls.path == path).get()
+        except cls.DoesNotExist:
+            return None
 
     def add_property(self, key, value):
         try:

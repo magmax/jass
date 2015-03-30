@@ -31,6 +31,7 @@ class Jass(object):
         self.task_create_document_list()
         self.task_remove_deleted_data()
         self.task_update_document_content()
+        self.task_render()
         self.task_generate_output()
 
     def task_initialize(self):
@@ -66,6 +67,7 @@ class Jass(object):
             for plugin in self.plugins_parser:
                 if plugin.plugin_object.can_manage(doc.path):
                     LOGGER.debug('Plugin %s will process doc %s', plugin.name, doc.path)
+                    output_path = plugin.plugin_object.output_file_name(doc.relative_path)
                     content = plugin.plugin_object.parse(doc.path, doc.add_property)
                     if doc.content:
                         doc.content.data = content
@@ -73,15 +75,33 @@ class Jass(object):
                         doc.content = data.Content.create(data=content)
                     doc.is_content_updated = True
                     doc.is_render_updated = False
+                    doc.output_path = output_path
                     doc.save()
                     break
 
-    def task_generate_output(self):
+    def task_render(self):
         LOGGER.info('%s documents to be regenerated',
                     data.Document.count_render_outofdate())
         for doc in data.Document.get_render_outdated():
-            pass
+            content = doc.content.data
+            if doc.render:
+                render = doc.render
+                render.data = content
+                render.save()
+            else:
+                render = data.Render.create(data=content)
+                doc.render = render
+                doc.save()
 
+    def task_generate_output(self):
+        LOGGER.info('Writing results')
+        for doc in data.Document.get_render_outdated():
+            output_path = os.path.join(self._settings.output, doc.output_path)
+            directory = os.path.dirname(output_path)
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            with open(output_path, 'w+') as fd:
+                fd.write(doc.render.data)
 
     def is_supported(self, path):
         for plugin in self.plugins_parser:

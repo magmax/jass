@@ -18,4 +18,5 @@ class Markdown(plugin.Parser):
 
     def parse(self, path, fn_add_property):
         content = super(Markdown, self).parse(path, fn_add_property)
-        return markdown.Markdown(content, extensions=['markdown.extensions.extra'])
+        md = markdown.Markdown()
+        return md.convert(content)

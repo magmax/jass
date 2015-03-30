@@ -1,3 +1,4 @@
+import os
 import logging
 from yapsy.IPlugin import IPlugin
 
@@ -10,6 +11,13 @@ class Parser(IPlugin):
         Returns True if this plugin can manage this file.
         """
         return False
+
+    def output_file_name(self, filename):
+        """
+        Returns The final filename
+        """
+        name, ext = os.path.splitext(filename)
+        return name + '.html'
 
     def parse(self, path, fn_add_property):
         previous = None
