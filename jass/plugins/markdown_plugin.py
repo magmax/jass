@@ -1,5 +1,5 @@
 import logging
-LOGGER = logging.getLogger('jass.' + __name__)
+LOGGER = logging.getLogger('jass.plugin.' + __name__)
 from jass import plugin
 try:
     import markdown
@@ -19,4 +19,5 @@ class Markdown(plugin.Parser):
     def parse(self, path, fn_add_property):
         content = super(Markdown, self).parse(path, fn_add_property)
         md = markdown.Markdown()
-        return md.convert(content)
+        ucontent = unicode(content, errors="ignore")  # FIXME
+        return md.convert(ucontent)

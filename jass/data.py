@@ -41,6 +41,7 @@ class Document(Model):
 
     content = ForeignKeyField(Content, related_name='document', null=True)
     render = ForeignKeyField(Render, related_name='document', null=True)
+    template = CharField(null=True)
 
     updated = DateTimeField()  # when this model was modified
 
@@ -77,15 +78,15 @@ class Document(Model):
 
     @classmethod
     def count_content_outofdate(cls):
-        return cls.select().where(cls.is_content_updated == False).count()
+        return cls.get_content_outdated().count()
 
     @classmethod
     def get_content_outdated(cls):
-        return cls.select().where(cls.is_content_updated == False)
+        return cls.select().where(cls.is_content_updated == False or cls.content == None)
 
     @classmethod
     def count_render_outofdate(cls):
-        return cls.select().where(cls.is_render_updated == False).count()
+        return cls.get_render_outdated().count()
 
     @classmethod
     def get_render_outdated(cls):
