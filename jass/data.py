@@ -107,6 +107,12 @@ class Document(Model):
             prop = Property.create(document=self, key=key, value=value)
         prop.save()
 
+    def get_properties_as_dict(self):
+        def inner():
+            for prop in self.properties:
+                yield prop.key, prop.value
+        return dict(inner())
+
 
 class Property(Model):
     document = ForeignKeyField(Document, related_name='properties')

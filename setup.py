@@ -62,6 +62,7 @@ setup(name='jass',
       install_requires=[
           'peewee',
           'yapsy',
+          'jinja2',
           'colorlog',
       ],
       tests_require=[

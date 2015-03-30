@@ -6,7 +6,9 @@ import logging
 import argparse
 import datetime
 import colorlog
+import jinja2
 from yapsy.PluginManager import PluginManager
+
 from . import data
 from . import plugin
 
@@ -25,6 +27,10 @@ class Jass(object):
         self._settings = settings
         self._plugin_manager = plugin_manager
         self._starting_date = datetime.datetime.now()
+        jinja_loader = jinja2.ChoiceLoader([
+            jinja2.FileSystemLoader(os.path.join(THIS_DIR, 'templates')),
+        ])
+        self._jinja_env = jinja2.Environment(loader=jinja_loader)
 
     def process(self):
         self.task_initialize()
@@ -103,13 +109,23 @@ class Jass(object):
             directory = os.path.dirname(output_path)
             if os.path.exists(output_path):
                 stat = os.stat(output_path)
-                if stat.st_mtime == doc.st_mtime:
+                if datetime.datetime.fromtimestamp(stat.st_mtime) >= doc.st_mtime:
                     continue
             if not os.path.exists(directory):
                 os.makedirs(directory)
             LOGGER.debug('Writing results for %s', output_path)
-            with open(output_path, 'w+') as fd:
-                fd.write(doc.render.data)
+            try:
+                template = self._jinja_env.get_template(doc.template or 'base.html')
+            except jinja2.exceptions.TemplateNotFound as e:
+                LOGGER.error('Template %s not found. File %s skipped', e, output_path)
+                continue
+            post_context = doc.get_properties_as_dict()
+            post_context['content'] = doc.render.data
+            post_context['tags'] = [x.strip() for x in post_context.get('tags', '').split(',')]
+            full_rendered = template.render(post=post_context)
+            with open(output_path, 'wb') as fd:
+                full_content = unicode.encode(full_rendered, errors="ignore")
+                fd.write(full_content)
 
     def is_supported(self, path):
         for plugin in self.plugins_parser:

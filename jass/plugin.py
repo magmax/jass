@@ -34,6 +34,8 @@ class Parser(IPlugin):
             previous = line
             if ':' in line:
                 key, value = line.split(':', 1)
+                if key.startswith('.. '):
+                    key = key[3:]
                 fn_add_property(key, value)
                 continue
 
