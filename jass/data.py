@@ -15,6 +15,16 @@ LOGGER = logging.getLogger(__name__)
 db = SqliteDatabase('.jass.db')
 
 
+class DataStore(Model):
+    plugin = CharField()
+    kind = CharField()
+    key = CharField()
+    value = CharField()
+
+    class Meta:
+        database = db
+
+
 class Content(Model):
     data = TextField()
 
@@ -33,11 +43,11 @@ class Document(Model):
     path = CharField(unique=True)
     relative_path = CharField(unique=True)
     output_path = CharField(unique=True, null=True)
+    manager = CharField(unique=True, null=True)
     st_mtime = DateTimeField()
 
     is_content_updated = BooleanField(default=False)
     is_render_updated = BooleanField(default=False)
-    is_generated = BooleanField(default=False)
 
     content = ForeignKeyField(Content, related_name='document', null=True)
     render = ForeignKeyField(Render, related_name='document', null=True)
@@ -125,4 +135,4 @@ class Property(Model):
 
 def initialize():
     db.connect()
-    db.create_tables([Content, Render, Document, Property], safe=True)
+    db.create_tables([Content, Render, Document, Property, DataStore], safe=True)

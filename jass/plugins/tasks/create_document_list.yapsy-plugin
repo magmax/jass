@@ -1,0 +1,9 @@
+[Core]
+Name = CreateDocumentList
+Module = create_document_list
+
+[Documentation]
+Author = Miguel Ángel García
+Version = 0.1
+Website = http://magmax.org
+Description = Create the list of documents

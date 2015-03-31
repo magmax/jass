@@ -5,14 +5,29 @@ from yapsy.IPlugin import IPlugin
 
 LOGGER = logging.getLogger('jass.' + __name__)
 
+
+Document = namedtuple('Document', [
+    'slug',
+    'title',
+    'summary',
+    'body',
+    'output_path',
+    'properties',  # list
+])
+
+
 class JassPlugin(IPlugin):
-    @property
-    def logger(self):
-        return logging.getLogger('jass.plugin.' + self.name)
+    priority = 100
+    name = 'JassPlugin'
+
+    def jass_initialize(self, name, api):
+        self.name = name
+        self.api = api
+        self.logger = logging.getLogger('jass.plugin.%s' % self.name)
 
 
 class Task(JassPlugin):
-    def run(self):
+    def find_documents(self):
         raise NotImplemented('Abstract method')
 
 
@@ -52,13 +67,6 @@ class Parser(JassPlugin):
 
         content = ''.join(lines)
         return content
-
-
-Document = namedtuple('Document', [
-    'content',
-    'output_path',
-    'properties',
-])
 
 
 class Indexer(JassPlugin):

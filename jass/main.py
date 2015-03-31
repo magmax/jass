@@ -17,12 +17,16 @@ LOGGER = logging.getLogger(__name__)
 
 PLUGINS_PARSER = 'parser'
 PLUGINS_INDEX = 'index'
+PLUGINS_TASK = 'task'
 
 PLUGINS = {
     PLUGINS_PARSER : plugin.Parser,
     PLUGINS_INDEX : plugin.Indexer,
     PLUGINS_TASK: plugin.Task,
 }
+
+
+UNDEFINED = object()
 
 
 class Jass(object):
@@ -36,17 +40,12 @@ class Jass(object):
         self._jinja_env = jinja2.Environment(loader=jinja_loader)
 
     def process(self):
-        self.task_initialize()
         self.task_create_document_list()
         self.task_create_generated_content()
         self.task_remove_deleted_data()
         self.task_update_document_content()
         self.task_render()
         self.task_generate_output()
-
-    def task_initialize(self):
-        LOGGER.debug('Initializing database')
-        data.initialize()
 
     def task_create_document_list(self, walk_fn=os.walk, add_fn=data.Document.add):
         LOGGER.info('Generating the document list')
@@ -139,13 +138,6 @@ class Jass(object):
                 full_content = unicode.encode(full_rendered, errors="ignore")
                 fd.write(full_content)
 
-    def is_supported(self, path):
-        for plugin in self.plugins_parser:
-            if plugin.plugin_object.can_manage(path):
-                return True
-
-        return False
-
     @property
     def plugins_parser(self):
         return self._plugin_manager.getPluginsOfCategory(PLUGINS_PARSER)
@@ -188,6 +180,51 @@ def logging_setup(verbose):
     inner('yapsy', format, level)
 
 
+class API(object):
+    def __init__(self, plugin_manager):
+        self._plugin_manager = plugin_manager
+        self.settings = None
+
+    def should_manage_file(self, path):
+        return any(
+            plugin.plugin_object.can_manage(path)
+            for plugin in self._plugin_manager.getPluginsOfCategory(PLUGINS_PARSER)
+        )
+
+    def data_store(self, plugin_name, kind, key, value):
+        try:
+            prop = data.DataStore.select().where(
+                (data.DataStore.plugin == plugin_name)
+                & (data.DataStore.kind == kind)
+                & (data.DataStore.key == key)
+            ).get()
+            prop.value = value
+        except data.DataStore.DoesNotExist:
+            prop = data.DataStore.create(
+                plugin=plugin_name,
+                kind=kind,
+                key=key,
+                value=value
+            )
+        prop.save()
+
+    def data_retrieve(self, plugin_name, kind, key, default=UNDEFINED):
+        try:
+            prop = data.DataStore.select().where(
+                (data.DataStore.plugin == plugin_name)
+                & (data.DataStore.kind == kind)
+                & (data.DataStore.key == key)
+            ).get()
+            return prop.value
+        except data.DataStore.DoesNotExist:
+            if default is UNDEFINED:
+                raise
+            return default
+
+    def register_document(self, plugin_name, path, relative_path, st_mtime):
+        data.Document.add(path, relative_path, st_mtime)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Just Another Static Site: Static Sites generator')
     parser.add_argument('--path', default='source',
@@ -216,8 +253,17 @@ def main():
     plugin_manager.setCategoriesFilter(PLUGINS)
     plugin_manager.collectPlugins()
 
-    for task in plugin_manager.getPluginsOfCategory(PLUGINS_TASK):
-        task.run(settings)
+    api = API(plugin_manager)
+    api.settings = settings
+
+    data.initialize()
+    tasks = sorted(plugin_manager.getPluginsOfCategory(PLUGINS_TASK),
+                   key=lambda x: (x.plugin_object.priority, x.name))
+
+    for task in tasks:
+        task.plugin_object.jass_initialize(task.name, api)
+        task.plugin_object.find_documents()
+
     return
     jass = Jass(settings, plugin_manager)
     jass.process()
