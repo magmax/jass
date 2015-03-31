@@ -21,6 +21,7 @@ PLUGINS_INDEX = 'index'
 PLUGINS = {
     PLUGINS_PARSER : plugin.Parser,
     PLUGINS_INDEX : plugin.Indexer,
+    PLUGINS_TASK: plugin.Task,
 }
 
 
@@ -215,6 +216,9 @@ def main():
     plugin_manager.setCategoriesFilter(PLUGINS)
     plugin_manager.collectPlugins()
 
+    for task in plugin_manager.getPluginsOfCategory(PLUGINS_TASK):
+        task.run(settings)
+    return
     jass = Jass(settings, plugin_manager)
     jass.process()
 

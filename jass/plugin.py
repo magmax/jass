@@ -5,8 +5,18 @@ from yapsy.IPlugin import IPlugin
 
 LOGGER = logging.getLogger('jass.' + __name__)
 
+class JassPlugin(IPlugin):
+    @property
+    def logger(self):
+        return logging.getLogger('jass.plugin.' + self.name)
 
-class Parser(IPlugin):
+
+class Task(JassPlugin):
+    def run(self):
+        raise NotImplemented('Abstract method')
+
+
+class Parser(JassPlugin):
     def can_manage(self, filename):
         """
         Returns True if this plugin can manage this file.
@@ -51,8 +61,8 @@ Document = namedtuple('Document', [
 ])
 
 
-class Indexer(IPlugin):
-    def get_documents(self):
+class Indexer(JassPlugin):
+    def get_documents(self, context):
         """
         Should return a list of documents. Generators are allowed.
         """
