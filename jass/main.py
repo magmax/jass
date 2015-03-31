@@ -16,9 +16,11 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 LOGGER = logging.getLogger(__name__)
 
 PLUGINS_PARSER = 'parser'
+PLUGINS_INDEX = 'index'
 
 PLUGINS = {
     PLUGINS_PARSER : plugin.Parser,
+    PLUGINS_INDEX : plugin.Indexer,
 }
 
 
@@ -35,6 +37,7 @@ class Jass(object):
     def process(self):
         self.task_initialize()
         self.task_create_document_list()
+        self.task_create_generated_content()
         self.task_remove_deleted_data()
         self.task_update_document_content()
         self.task_render()
@@ -58,6 +61,13 @@ class Jass(object):
                 if add_fn(path, relative_path, date):
                     n += 1
         LOGGER.info('%s documents added', n)
+
+    def task_create_generated_content(self):
+        context = dict()
+
+        for plugin in self._plugin_manager.getPluginsOfCategory(PLUGINS_INDEX):
+            for document in plugin.plugin_object.get_documents(context.copy()):
+                LOGGER.error('Generating document: %s', document )
 
     def task_remove_deleted_data(self, fn_remove_documents_older_than=
                                  data.Document.remove_older_than):
@@ -119,6 +129,7 @@ class Jass(object):
             except jinja2.exceptions.TemplateNotFound as e:
                 LOGGER.error('Template %s not found. File %s skipped', e, output_path)
                 continue
+
             post_context = doc.get_properties_as_dict()
             post_context['content'] = doc.render.data
             post_context['tags'] = [x.strip() for x in post_context.get('tags', '').split(',')]

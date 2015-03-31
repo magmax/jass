@@ -1,0 +1,9 @@
+[Core]
+Name = Indexer
+Module = indexer
+
+[Documentation]
+Author = Miguel Ángel García
+Version = 0.1
+Website = http://magmax.org
+Description = Generate Indexes for posts

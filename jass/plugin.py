@@ -1,5 +1,6 @@
 import os
 import logging
+from collections import namedtuple
 from yapsy.IPlugin import IPlugin
 
 LOGGER = logging.getLogger('jass.' + __name__)
@@ -41,3 +42,18 @@ class Parser(IPlugin):
 
         content = ''.join(lines)
         return content
+
+
+Document = namedtuple('Document', [
+    'content',
+    'output_path',
+    'properties',
+])
+
+
+class Indexer(IPlugin):
+    def get_documents(self):
+        """
+        Should return a list of documents. Generators are allowed.
+        """
+        raise NotImplemented('Abstract method')
