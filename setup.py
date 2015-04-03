@@ -63,6 +63,7 @@ setup(name='jass',
           'peewee',
           'yapsy',
           'jinja2',
+          'awesome-slugify',
           'colorlog',
       ],
       tests_require=[
