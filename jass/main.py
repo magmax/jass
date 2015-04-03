@@ -18,11 +18,13 @@ LOGGER = logging.getLogger(__name__)
 PLUGINS_PARSER = 'parser'
 PLUGINS_INDEX = 'index'
 PLUGINS_TASK = 'task'
+PLUGINS_RENDER = 'render'
 
 PLUGINS = {
     PLUGINS_PARSER : plugin.Parser,
     PLUGINS_INDEX : plugin.Indexer,
     PLUGINS_TASK: plugin.Task,
+    PLUGINS_RENDER: plugin.Render,
 }
 
 
@@ -77,21 +79,21 @@ class Jass(object):
 
     def task_update_document_content(self):
         LOGGER.info('%s documents to be reloaded',
-                    data.Document.count_content_outofdate())
+                    data.Document.count_body_outofdate())
 
-        for doc in data.Document.get_content_outdated():
+        for doc in data.Document.get_body_outdated():
             LOGGER.info('Reloading %s', doc.relative_path)
             for plugin in self.plugins_parser:
                 if plugin.plugin_object.can_manage(doc.path):
                     LOGGER.debug('Plugin %s will process doc %s', plugin.name, doc.path)
                     output_path = plugin.plugin_object.output_file_name(doc.relative_path)
                     content = plugin.plugin_object.parse(doc.path, doc.add_property)
-                    if doc.content:
-                        doc.content.data = content
-                        doc.content.save()
+                    if doc.body:
+                        doc.body.data = content
+                        doc.body.save()
                     else:
-                        doc.content = data.Content.create(data=content)
-                    doc.is_content_updated = True
+                        doc.body = data.Content.create(data=content)
+                    doc.is_body_updated = True
                     doc.is_render_updated = False
                     doc.output_path = output_path
                     doc.save()
@@ -101,7 +103,7 @@ class Jass(object):
         LOGGER.info('%s documents to be regenerated',
                     data.Document.count_render_outofdate())
         for doc in data.Document.get_render_outdated():
-            content = doc.content.data
+            content = doc.body.data
             if doc.render:
                 render = doc.render
                 render.data = content
@@ -131,7 +133,7 @@ class Jass(object):
                 continue
 
             post_context = doc.get_properties_as_dict()
-            post_context['content'] = doc.render.data
+            post_context['body'] = doc.render.data
             post_context['tags'] = [x.strip() for x in post_context.get('tags', '').split(',')]
             full_rendered = template.render(post=post_context)
             with open(output_path, 'wb') as fd:
@@ -224,6 +226,18 @@ class API(object):
     def register_document(self, plugin_name, path, relative_path, st_mtime):
         data.Document.add(path, relative_path, st_mtime)
 
+    def update_document(self, new_document):
+        doc = data.Document.get_by_path_or_none(new_document.path)
+        doc.title = new_document.title
+        doc.summary = new_document.summary
+        doc.body = new_document.body
+        doc.is_body_updated = True
+        # FIXME: update properties
+        doc.save()
+
+    def render_document(self, path, summary, body):
+        print('%s - %s/%s', path, summary, body)
+
 
 def main():
     parser = argparse.ArgumentParser(description='Just Another Static Site: Static Sites generator')
@@ -248,7 +262,7 @@ def main():
     logging_setup(settings.verbose)
 
     LOGGER.debug('Loading plugins in %s', settings.plugin_paths)
-    plugin_manager = PluginManager()
+    plugin_manager = PluginManager(plugin_info_ext='plugin')
     plugin_manager.setPluginPlaces(settings.plugin_paths)
     plugin_manager.setCategoriesFilter(PLUGINS)
     plugin_manager.collectPlugins()
@@ -256,14 +270,46 @@ def main():
     api = API(plugin_manager)
     api.settings = settings
 
+    starting_date = datetime.datetime.now()
+
     data.initialize()
     tasks = sorted(plugin_manager.getPluginsOfCategory(PLUGINS_TASK),
                    key=lambda x: (x.plugin_object.priority, x.name))
+    parsers = sorted(plugin_manager.getPluginsOfCategory(PLUGINS_PARSER),
+                     key=lambda x: (x.plugin_object.priority, x.name))
+    renders = sorted(plugin_manager.getPluginsOfCategory(PLUGINS_RENDER),
+                     key=lambda x: (x.plugin_object.priority, x.name))
 
+    for plugin in plugin_manager.getAllPlugins():
+        plugin.plugin_object.jass_initialize(plugin.name, api)
     for task in tasks:
-        task.plugin_object.jass_initialize(task.name, api)
         task.plugin_object.find_documents()
+    # remove deleted documents
+    n =  data.Document.remove_older_than(starting_date)
+    if n > 0:
+        LOGGER.debug('%s documents were removed', n)
 
+    LOGGER.info('%s/%s documents are outdated',
+                data.Document.count_body_outdated(),
+                data.Document.select().count())
+
+    for document in data.Document.get_body_outdated():
+        for parser in parsers:
+            if parser.plugin_object.can_manage(document.path):
+                parser.plugin_object.read_document(document.path)
+                break
+
+    LOGGER.info('%s/%s documents to be rendered again',
+                data.Document.count_render_outdated(),
+                data.Document.select().count())
+
+    for document in data.Document.get_render_outdated():
+        for render in renders:
+            if render.plugin_object.can_manage(document.path):
+                render.plugin_object.render(document)
+                break
+
+    LOGGER.info('Thank you for using JASS!')
     return
     jass = Jass(settings, plugin_manager)
     jass.process()

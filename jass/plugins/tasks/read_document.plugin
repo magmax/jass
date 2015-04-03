@@ -1,0 +1,9 @@
+[Core]
+Name = DocumentReader
+Module = read_document
+
+[Documentation]
+Author = Miguel Ángel García
+Version = 0.1
+Website = http://magmax.org
+Description = Read a document

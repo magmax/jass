@@ -1,9 +1,9 @@
 [Core]
-Name = Markdown
-Module = markdown_plugin
+Name = MarkdownRender
+Module = markdown_render
 
 [Documentation]
 Author = Miguel Ángel García
 Version = 0.1
 Website = http://magmax.org
-Description = Process Markdown files for Jass
+Description = Processes a Markdown document
